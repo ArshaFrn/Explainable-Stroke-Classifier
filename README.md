@@ -7,12 +7,12 @@ The **Explainable Stroke Classifier** is a clinical triage tool designed for the
 The primary purpose is to provide a "Safety-First" triage system that flags high-risk patients in under 30 seconds, allowing for faster intervention in critical emergency room environments.
 
 ## File Structure
-*   `main.ipynb`: Full data science workflow (EDA, preprocessing, training, evaluation, and artifact generation).
-*   `app.py`: Standalone Tkinter GUI for real-time risk assessment.
-*   `healthcare-dataset-stroke-data.csv`: The raw dataset.
-*   `models/`: Directory containing trained model artifacts.
-*   `outputs/`: Directory containing generated plots and reports.
-*   `report.md`: Detailed written report with model comparisons, evaluation analysis, and dataset challenge discussion.
+*   [main.ipynb](main.ipynb): Full data science workflow (EDA, preprocessing, training, evaluation, and artifact generation).
+*   [app.py](app.py): Standalone Tkinter GUI for real-time risk assessment.
+*   [healthcare-dataset-stroke-data.csv](healthcare-dataset-stroke-data.csv): The raw dataset.
+*   [models/](models/): Directory containing trained model artifacts.
+*   [outputs/](outputs/): Directory containing generated plots and reports.
+*   **[report.md](report.md)**: Detailed written report with model comparisons, evaluation analysis, and dataset challenge discussion.
 
 ## Dataset
 The project uses the [Stroke Prediction Dataset](https://www.kaggle.com/datasets/fedesoriano/stroke-prediction-dataset) (`healthcare-dataset-stroke-data.csv`), featuring clinical markers for 5,110 patients.

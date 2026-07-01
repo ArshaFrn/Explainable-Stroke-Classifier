@@ -30,14 +30,13 @@ A modular pipeline was built to ensure consistency between training and the GUI 
 *   **Feature Selection:** We dropped socio-demographic features (`ever_married`, `work_type`, `Residence_type`) after SHAP analysis showed they added noise and provided little additional predictive power.
 *   **Data Cleaning:** We filtered out the single `gender == Other` record because it represented an extreme outlier class with insufficient support for modeling, and we focused the model on the clinically meaningful binary categories used in the GUI.
 *   **Imputation:** BMI values were converted to numeric and median-imputed. The dataset contains missing BMI entries, and median imputation is robust for skewed clinical data and preserves distributional shape better than mean imputation.
-*   **Feature Engineering:** We added `ageHypertensionInteraction` to capture the amplified risk of hypertension in older patients, and `isSenior` to distinguish age-based risk categories. These engineered features help the model learn nonlinear clinical effects that raw age or hypertension alone cannot express.
+*   **Feature Engineering:** We added `ageHypertensionInteraction` to capture the amplified risk of hypertension in older patients. This engineered feature helps the model learn nonlinear clinical effects that raw age or hypertension alone cannot express.
 *   **Encoding:** Categorical fields such as `gender` and `smoking_status` were encoded using `LabelEncoder`, preserving the exact mapping needed by the GUI and ensuring the same encoding pipeline is reused in deployment.
 *   **Scaling:** The full feature set was normalized with `StandardScaler` so that calibrated models and linear classifiers would not be affected by feature scale differences.
 
 ### 4.1 Feature Engineering Rationale
 The feature engineering stage was intentionally conservative and clinically motivated:
 *   `ageHypertensionInteraction`: Hypertension is more dangerous in older adults than in younger ones. Multiplying age by the hypertension indicator allows the model to learn that age and hypertension together signal higher risk than either feature alone.
-*   `isSenior`: A binary senior flag simplifies the age effect for models that benefit from categorical thresholds, and it supports the idea that clinical risk changes at common geriatric cutoffs.
 *   `bmi` numeric conversion and imputation: BMI is a key metabolic risk factor, but the raw dataset contains missing and malformed entries. Converting to numeric and imputing the median keeps the feature usable without introducing extreme values.
 *   `smoking_status` encoding: Smoking history is known to affect stroke risk, and preserving categorical meaning through consistent encoding ensures the GUI uses the same risk mapping as the training pipeline.
 
@@ -89,10 +88,10 @@ By shifting the decision threshold downwards (e.g., to ~0.05-0.10 instead of 0.5
 ### 6.1.1 Model Evaluation Comparison
 | Model | Threshold | Accuracy | F2-Score | Stroke Precision | Stroke Recall | Stroke F1 | Strokes Captured |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| LightGBM | 0.05 | 0.77 | 0.4158 | 0.15 | 0.76 | 0.25 | 38 / 50 |
-| Random Forest | 0.04 | 0.73 | 0.3937 | 0.13 | 0.80 | 0.22 | 40 / 50 |
-| Logistic Regression | 0.70 | 0.85 | 0.4704 | 0.20 | 0.70 | 0.32 | 35 / 50 |
-| SVM | 0.08 | 0.77 | 0.4148 | 0.15 | 0.76 | 0.25 | 38 / 50 |
+| LightGBM | 0.05 | 0.77 | 0.4139 | 0.15 | 0.76 | 0.25 | 38 / 50 |
+| Random Forest | 0.04 | 0.69 | 0.3683 | 0.12 | 0.80 | 0.20 | 40 / 50 |
+| Logistic Regression | 0.69 | 0.85 | 0.4843 | 0.20 | 0.74 | 0.32 | 37 / 50 |
+| SVM | 0.11 | 0.85 | 0.4282 | 0.19 | 0.62 | 0.29 | 31 / 50 |
 
 This table highlights the key tradeoffs between the candidate models. The evaluation focuses on the positive stroke class because in triage the ability to identify true stroke cases is the most clinically important outcome. Logistic Regression achieves the highest F2-score and the best overall accuracy, while Random Forest captures the most stroke cases at the cost of lower precision.
 

@@ -236,7 +236,6 @@ class StrokeTriageApp:
             }
 
             raw["ageHypertensionInteraction"] = raw["age"] * raw["hypertension"]
-            raw["isSenior"] = 1 if raw["age"] >= 65 else 0
 
             for col, le in self.encoders.items():
                 if col in raw:

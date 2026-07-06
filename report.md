@@ -131,7 +131,181 @@ We integrated SHAP to peek inside the "black box."
 ![SHAP Waterfall](outputs/shap_waterfall.png)
 **Analysis:** In the laboratory, we tested individual cases. The waterfall plot above explains a "High Risk" prediction: even if a patient is not obese, their extreme age and hypertension "push" the risk probability past the safety threshold. The GUI (`app.py`) uses this logic to provide real-time feedback.
 
-## 8. Deployment and Saved Artifacts
+## 8. Comprehensive Fairness & Decision Rule Analysis
+
+### 8.1 Gender-Based Fairness Audit
+
+| Gender | N | Actual Strokes | Predicted Strokes | Recall | Precision | Positive Prediction Rate | Mean Probability |
+|--------|---|---|---|---|---|---|---|
+| Female | 599 | 29 | 110 | 0.8276 | 0.2182 | 0.1836 | 0.3222 |
+| Male | 423 | 21 | 72 | 0.6190 | 0.1806 | 0.1702 | 0.3340 |
+
+**Analysis:**
+The model demonstrates **gender-based performance disparities** that warrant clinical consideration:
+
+- **Recall Imbalance:** Female patients have a recall of 82.76% compared to males at 61.90%, meaning the model captures significantly more female stroke cases. This represents a **21.9 percentage point gap** in sensitivity.
+- **Positive Prediction Rate:** The model flags 18.36% of females as high-risk versus 17.02% of males—a relatively small difference, suggesting the disparity is driven by actual predictive differences rather than systematic bias in threshold application.
+- **Mean Probability Similarity:** Both genders have comparable average predicted stroke probabilities (Female: 32.22%, Male: 33.40%), indicating the model doesn't systematically over/underestimate risk for either gender *on average*.
+
+**Clinical Implication:** The higher recall for females suggests the model may have learned patterns from the training data where female stroke presentations are more stereotypical or easier to detect. Male stroke cases may require additional clinical vigilance, as the model misses approximately 38% of them.
+
+**Recommendation:** Consider demographic-stratified thresholds or enhanced clinical review for male patients flagged as "low-risk" by the model.
+
+---
+
+### 8.2 Age-Based Fairness Audit
+
+| Age Group | N | Actual Strokes | Predicted Strokes | Recall | Precision | Positive Prediction Rate | Mean Probability |
+|-----------|---|---|---|---|---|---|---|
+| <40 | 466 | 5 | 27 | 0.0000 | 0.0000 | 0.0579 | 0.1690 |
+| 40-60 | 297 | 7 | 23 | 0.0000 | 0.0000 | 0.0774 | 0.3389 |
+| 60-80 | 230 | 31 | 113 | 0.9677 | 0.2655 | 0.4913 | 0.5947 |
+| >80 | 29 | 7 | 19 | 1.0000 | 0.3684 | 0.6552 | 0.6248 |
+
+**Analysis:**
+The age-stratified analysis reveals **critical model behavior that reflects clinical reality but with important caveats:**
+
+- **Young Patients (< 60):** The model achieves 0% recall in both the <40 and 40-60 age groups, meaning it predicts "low-risk" for all patients in these cohorts despite 5 and 7 actual strokes occurring, respectively. This aligns with epidemiological reality (stroke is rare in younger populations) but creates a **blind spot for atypical younger stroke presentations** (e.g., patients with rare genetic factors, drug use, or extreme hypertension).
+
+- **Elderly Patients (60-80 & >80):** The model shows exceptional recall (96.77% and 100%, respectively), capturing nearly all strokes in these age groups. The mean predicted probability jumps dramatically (59.47% and 62.48%), reflecting the model's strong association between age and stroke risk.
+
+- **Disparate Positive Prediction Rates:** Young patients have a 5.79-7.74% positive prediction rate compared to 49.13-65.52% in elderly populations. While this mirrors biological stroke risk, it raises the question: **Are younger patients with subtle stroke risk factors being systematically missed?**
+
+**Clinical Implication:** The model exhibits **age-based risk stratification** that, while epidemiologically sound, may inadvertently de-prioritize younger stroke patients who present atypically. Emergency departments should maintain heightened clinical suspicion for younger patients with risk factors, even if the model assigns low probability.
+
+**Recommendation:** Consider age-specific thresholds (lower threshold for younger patients) or require clinical override capability for high-risk younger patients.
+
+![Fairness Audit Results](outputs/fairness_audit.png)
+**Visual Analysis:** The fairness audit visualization clearly shows the recall disparity: females (82.76%) dramatically outperform males (61.90%) in stroke detection. The age-based view reveals a stark contrast, with elderly patients (96.77-100% recall) capturing nearly all strokes, while younger cohorts achieve zero recall—a pattern that demands clinical attention for atypical presentations.
+
+---
+
+### 8.3 Clinical Decision Rules: Feature Importance
+
+| Feature | Threshold | High-Risk Mean | Low-Risk Mean | Rule Precision | Rule Coverage |
+|---------|-----------|---|---|---|---|
+| age | 74.13 | 74.13 | 36.39 | 1.000 | 0.582 |
+| heart_disease | 0.16 | 0.16 | 0.02 | 0.659 | 0.159 |
+| ageHypertensionInteraction | 26.35 | 26.35 | 2.65 | 0.609 | 0.368 |
+| hypertension | 0.37 | 0.37 | 0.05 | 0.604 | 0.368 |
+| avg_glucose_level | 143.87 | 143.87 | 99.16 | 0.470 | 0.434 |
+| bmi | 30.01 | 30.01 | 28.68 | 0.202 | 0.407 |
+| smoking_status | 1.51 | 1.51 | 1.38 | 0.182 | 0.544 |
+| gender | 0.41 | 0.41 | 0.42 | 0.174 | 0.407 |
+
+**Analysis:**
+
+This table ranks clinical features by their individual rule precision and coverage—revealing which single-feature thresholds are most predictive of high-risk vs. low-risk groups:
+
+- **Age (Precision: 1.0, Coverage: 0.582):** A threshold of ≥74.13 years perfectly separates high-risk from low-risk patients *among those the model flags as high-risk*. However, it only captures 58.2% of all high-risk cases, meaning age alone is necessary but insufficient for full stroke detection.
+
+- **Heart Disease (Precision: 0.659, Coverage: 0.159):** While heart disease shows good precision as a rule, it captures only 15.9% of high-risk patients, highlighting that stroke risk is multifactorial and cardiac history is just one piece.
+
+- **Age × Hypertension Interaction (Precision: 0.609, Coverage: 0.368):** Our engineered feature demonstrates strong utility: The interaction threshold of ≥26.35 achieves 60.9% precision and captures 36.8% of high-risk cases—better than hypertension alone (60.4%, 36.8% coverage). This validates the clinical intuition that hypertension's danger scales with age.
+
+- **Average Glucose Level (Precision: 0.470, Coverage: 0.434):** Glucose is a weak individual rule (47% precision) but captures the most cases (43.4% coverage). This suggests hyperglycemia is a common *accompaniment* to stroke risk but not a definitive marker on its own.
+
+- **BMI, Smoking Status, Gender (Precision: 0.202-0.174):** These features show poor individual rule precision, confirming the earlier SHAP analysis that socio-demographic and lifestyle factors, while correlated with stroke, are weak predictors in isolation.
+
+**Clinical Implication:** 
+A practical **three-tiered triage rule** emerges:
+1. **Tier 1 (Highest Priority):** Age ≥ 74 years → Assume high-risk unless proven otherwise
+2. **Tier 2 (Moderate Priority):** Age 60-74 with hypertension or glucose > 140 → Detailed assessment
+3. **Tier 3 (Standard Priority):** Age < 60 → Detailed clinical history required; model defaults to low-risk
+
+**Recommendation:** Translate these rules into emergency department protocols as a backup to the automated model, ensuring clinicians have interpretable decision points.
+
+![Clinical Decision Rules](outputs/clinical_decision_rules.png)
+**Visual Analysis:** The clinical decision rules visualization provides four critical insights:
+- **Age Distribution (top-left):** Shows a sharp separation at age ~76, with high-risk patients concentrated in the elderly range
+- **Glucose Distribution (top-right):** Reveals hyperglycemia (>112 mg/dL) as a hallmark of high-risk presentations
+- **BMI Distribution (bottom-left):** Demonstrates modest separation, confirming BMI as a weaker individual predictor (threshold: 28.7)
+- **Rule Effectiveness (bottom-right):** The bar chart confirms the three composite rules' precision-recall tradeoffs, with Age + Glucose achieving the best precision (100%) while Age + HTN provides better coverage (36.8%)
+
+---
+
+### 8.4 Visual Outputs Summary
+
+The fairness audit and clinical decision rules generate key visualizations saved to `outputs/`:
+- **fairness_audit.png:** Recall comparison by gender and age group, highlighting critical disparities
+- **clinical_decision_rules.png:** Distribution histograms for age, glucose, and BMI by risk category, plus rule effectiveness comparison
+
+These visualizations support both model validation and clinician training by making abstract model behavior tangible and actionable.
+
+---
+
+## 9. Deployment and Saved Artifacts
+
+| Age Group | N | Actual Strokes | Predicted Strokes | Recall | Precision | Positive Prediction Rate | Mean Probability |
+|-----------|---|---|---|---|---|---|---|
+| <40 | 466 | 5 | 27 | 0.0000 | 0.0000 | 0.0579 | 0.1690 |
+| 40-60 | 297 | 7 | 23 | 0.0000 | 0.0000 | 0.0774 | 0.3389 |
+| 60-80 | 230 | 31 | 113 | 0.9677 | 0.2655 | 0.4913 | 0.5947 |
+| >80 | 29 | 7 | 19 | 1.0000 | 0.3684 | 0.6552 | 0.6248 |
+
+**Analysis:**
+The age-stratified analysis reveals **critical model behavior that reflects clinical reality but with important caveats:**
+
+- **Young Patients (< 60):** The model achieves 0% recall in both the <40 and 40-60 age groups, meaning it predicts "low-risk" for all patients in these cohorts despite 5 and 7 actual strokes occurring, respectively. This aligns with epidemiological reality (stroke is rare in younger populations) but creates a **blind spot for atypical younger stroke presentations** (e.g., patients with rare genetic factors, drug use, or extreme hypertension).
+
+- **Elderly Patients (60-80 & >80):** The model shows exceptional recall (96.77% and 100%, respectively), capturing nearly all strokes in these age groups. The mean predicted probability jumps dramatically (59.47% and 62.48%), reflecting the model's strong association between age and stroke risk.
+
+- **Disparate Positive Prediction Rates:** Young patients have a 5.79-7.74% positive prediction rate compared to 49.13-65.52% in elderly populations. While this mirrors biological stroke risk, it raises the question: **Are younger patients with subtle stroke risk factors being systematically missed?**
+
+**Clinical Implication:** The model exhibits **age-based risk stratification** that, while epidemiologically sound, may inadvertently de-prioritize younger stroke patients who present atypically. Emergency departments should maintain heightened clinical suspicion for younger patients with risk factors, even if the model assigns low probability.
+
+**Recommendation:** Consider age-specific thresholds (lower threshold for younger patients) or require clinical override capability for high-risk younger patients.
+
+---
+
+### 8.3 Clinical Decision Rules: Feature Importance
+
+| Feature | Threshold | High-Risk Mean | Low-Risk Mean | Rule Precision | Rule Coverage |
+|---------|-----------|---|---|---|---|
+| age | 74.13 | 74.13 | 36.39 | 1.000 | 0.582 |
+| heart_disease | 0.16 | 0.16 | 0.02 | 0.659 | 0.159 |
+| ageHypertensionInteraction | 26.35 | 26.35 | 2.65 | 0.609 | 0.368 |
+| hypertension | 0.37 | 0.37 | 0.05 | 0.604 | 0.368 |
+| avg_glucose_level | 143.87 | 143.87 | 99.16 | 0.470 | 0.434 |
+| bmi | 30.01 | 30.01 | 28.68 | 0.202 | 0.407 |
+| smoking_status | 1.51 | 1.51 | 1.38 | 0.182 | 0.544 |
+| gender | 0.41 | 0.41 | 0.42 | 0.174 | 0.407 |
+
+**Analysis:**
+
+This table ranks clinical features by their individual rule precision and coverage—revealing which single-feature thresholds are most predictive of high-risk vs. low-risk groups:
+
+- **Age (Precision: 1.0, Coverage: 0.582):** A threshold of ≥74.13 years perfectly separates high-risk from low-risk patients *among those the model flags as high-risk*. However, it only captures 58.2% of all high-risk cases, meaning age alone is necessary but insufficient for full stroke detection.
+
+- **Heart Disease (Precision: 0.659, Coverage: 0.159):** While heart disease shows good precision as a rule, it captures only 15.9% of high-risk patients, highlighting that stroke risk is multifactorial and cardiac history is just one piece.
+
+- **Age × Hypertension Interaction (Precision: 0.609, Coverage: 0.368):** Our engineered feature demonstrates strong utility: The interaction threshold of ≥26.35 achieves 60.9% precision and captures 36.8% of high-risk cases—better than hypertension alone (60.4%, 36.8% coverage). This validates the clinical intuition that hypertension's danger scales with age.
+
+- **Average Glucose Level (Precision: 0.470, Coverage: 0.434):** Glucose is a weak individual rule (47% precision) but captures the most cases (43.4% coverage). This suggests hyperglycemia is a common *accompaniment* to stroke risk but not a definitive marker on its own.
+
+- **BMI, Smoking Status, Gender (Precision: 0.202-0.174):** These features show poor individual rule precision, confirming the earlier SHAP analysis that socio-demographic and lifestyle factors, while correlated with stroke, are weak predictors in isolation.
+
+**Clinical Implication:** 
+A practical **three-tiered triage rule** emerges:
+1. **Tier 1 (Highest Priority):** Age ≥ 74 years → Assume high-risk unless proven otherwise
+2. **Tier 2 (Moderate Priority):** Age 60-74 with hypertension or glucose > 140 → Detailed assessment
+3. **Tier 3 (Standard Priority):** Age < 60 → Detailed clinical history required; model defaults to low-risk
+
+**Recommendation:** Translate these rules into emergency department protocols as a backup to the automated model, ensuring clinicians have interpretable decision points.
+
+---
+
+### 8.4 Visual Outputs
+
+The fairness audit and clinical decision rules generate three key visualizations saved to `outputs/`:
+- **fairness_audit.png:** Recall comparison by gender and age group, highlighting disparities
+- **clinical_decision_rules.png:** Distribution histograms for age, glucose, and BMI by risk category, plus rule effectiveness comparison
+
+These visualizations support both model validation and clinician training by making abstract model behavior tangible.
+
+---
+
+## 9. Deployment and Saved Artifacts
 The final lab results were exported into the following artifacts in the `models/` directory:
 *   `scaler.joblib`: Pre-fitted feature scaler.
 *   `encoders.joblib`: Categorical encoders.
@@ -142,10 +316,10 @@ The **VitalSeconds GUI** loads these to provide real-time assessment:
 *   **Stroke Probability**: Displayed as a percentage for the clinician.
 *   **Risk Triage**: Classified as **CRITICAL: HIGH RISK** or **NORMAL: LOW RISK** based on the optimized threshold.
 
-## 9. Overcoming Engineering Hurdles
+## 10. Overcoming Engineering Hurdles
 1.  **Data Quality:** We handled the 'Other' gender anomaly and BMI missingness through robust filtering and median imputation.
 2.  **Consistency:** A major challenge was ensuring the `app.py` inputs were scaled identically to the training set. We solved this by exporting the exact `StandardScaler` used in the lab.
 3.  **Model Selection:** While LightGBM is powerful, our lab results showed that **Logistic Regression** often provided more stable results on this specific imbalanced dataset, likely due to its lower risk of overfitting on the tiny minority class.
 
-## 10. Conclusion
+## 11. Conclusion
 This project successfully transformed a raw healthcare dataset into a clinically actionable triage tool. By prioritizing **Recall** and **Calibration**, and ensuring **Explainability** through SHAP, we have created a system that aligns with medical priorities: safety, speed, and transparency.

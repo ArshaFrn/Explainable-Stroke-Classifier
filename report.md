@@ -77,6 +77,25 @@ The evaluation revealed important tradeoffs:
 
 The final winner was selected based on F2-score and the ability to capture the most stroke cases while still producing trustworthy probability estimates.
 
+### 5.2 Threshold Strategy Comparison
+The following table compares three decision strategies for each model: the standard 0.5 cutoff, a lower fixed 0.3 cutoff, and the F2-optimized cutoff discovered during evaluation. The comparison shows why a default threshold is too conservative for this imbalanced stroke dataset.
+
+| Model | Threshold 0.5 F2 | Threshold 0.3 F2 | Optimized Threshold | Optimized F2 | Threshold 0.5 Recall | Threshold 0.3 Recall | Optimized Recall | Threshold 0.5 Precision | Threshold 0.3 Precision | Optimized Precision | Threshold 0.5 Positives | Threshold 0.3 Positives | Max Prob |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| LightGBM | 0.0000 | 0.0248 | 0.050 | 0.4139 | 0.00 | 0.02 | 0.76 | 0.0000 | 0.5000 | 0.1467 | 0 | 2 | 0.3255 |
+| RandomForest | 0.0000 | 0.0243 | 0.044 | 0.3683 | 0.00 | 0.02 | 0.80 | 0.0000 | 0.1667 | 0.1166 | 0 | 6 | 0.3513 |
+| LogisticRegression | 0.3937 | 0.3201 | 0.686 | 0.4843 | 0.80 | 0.84 | 0.74 | 0.1299 | 0.0921 | 0.2033 | 308 | 456 | 0.9403 |
+| SVM | 0.0000 | 0.0000 | 0.108 | 0.4282 | 0.00 | 0.00 | 0.62 | 0.0000 | 0.0000 | 0.1914 | 0 | 0 | 0.2336 |
+
+![Threshold Comparison F2](outputs/threshold_comparison_f2.png)
+
+**Comparison results:**
+*   **LightGBM and RandomForest** both fail to make any positive predictions at the default 0.5 cutoff, leading to zero F2 and zero recall. Lowering the threshold to 0.3 produces only a tiny recall improvement, but the optimized cutoff is the only practical strategy for these models.
+*   **Logistic Regression** is the only model with meaningful performance at 0.5, showing that its calibrated probabilities are more conservative and stable. Its optimized threshold further improves F2 to 0.4843, while keeping recall high enough for triage.
+*   **SVM** also makes no positive predictions until a much lower threshold is applied. The optimized threshold of 0.108 enables it to reach a clinically useful recall of 0.62, even though precision remains low.
+
+This threshold comparison confirms that **default probability cutoffs are not reliable in imbalanced medical triage tasks**. Using a model-specific F2-optimized threshold is essential to capture stroke cases, especially for tree-based and calibrated classifiers. The F2 plot illustrates that the optimized strategy consistently outperforms both fixed cutoffs in terms of safety-focused model performance.
+
 ## 6. Performance Evaluation
 The "Winner Model" was selected based on its ability to maximize the capture of actual stroke cases.
 
